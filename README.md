@@ -1,7 +1,22 @@
 # Introduction
 When I wrote this code, only God and I knew how it worked. Now, only God knows it! Maybe Github Copilot will help you :)
-This module was written to automate some FibreChannel related tasks. I've removed parts not related to Brocade switches configuration. But if something left just ignore it.
+This module was written to automate some FibreChannel related tasks. It's a part of automation tooling which we are using to configure on-premises VMs with FC SAN connectivity. I've removed parts not related to Brocade switches configuration. But if something left just ignore it.
+
 This module uses Brocade REST API and some functions required specific PowerShell version. See details below.
+
+Naming convention for aliaces is following:
+
+* *HostName_vFC1* for SAN1
+* *HostName_vFC2* for SAN2
+* *StorageName-CTxFCx* for Target Storage Arrays
+* *PRZ_StorageName_HostGroupName_01* for zones. We will use only Peer Zones.
+
+For Hyper-V VMs each vFC will have 2 WWPNs for each fabric (required for Live-Migration).
+
+This code, intentionally, doesn't support any delete operations.
+
+This code was tested on FOS 9.x with Gen6 switches. When I have free time I'm trying to finish it (because a lot of things left to do, a lot of things can be optimized). But I hope it will be usefull to someone who try to automate SAN configuration. Because when I started to write this code, I didn't find useful examples of how to do it.
+
 ## Quick Overview
 **FibreChannelTools** contains following functions:
 1. **Invoke-FCLogToFile** - service function for logging purposes. Other module functions heavily uses it to log everything. By default it stores logs into *C:\Users\Public\Documents\FibreChannelTools.txt*.
@@ -17,6 +32,7 @@ To make it work, you have to:
     ```powershell
     Import-Module C:\...\FibreChannelTools\FibreChannelTools.psm1
     ```
+- create dedicated user with required permissions on SAN switches. Also you will have to create authtoken for these users.
 
 Additionally, to be able run FibreChannel SAN functions you should have PS7, because FC config uses PS7 REST API cmdlets to query SAN switches.
 PS7 could be installed and used in parallel with PS5 without any issues.

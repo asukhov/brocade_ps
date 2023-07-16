@@ -1,0 +1,19 @@
+TOPIC
+		about_FibreChannelTools
+
+SHORT DESCRIPTION
+		This tool is designed to check and configure FC for Hyper-V VMs
+
+LONG DESCRIPTION
+		This tool is designed to check and configure FC for Hyper-V VMs. Please check README.md for Long Description
+
+EXAMPLES
+		Invoke-FCConfiguration -ComputerName VMNAME00,VMNAME01 -ActionType PrepareConfig -StorageArrayName TargetStorageName01
+		Invoke-FCPureConfig -ComputerName VMNAME00 -ActionType CreateNew -ComputerHostGroupType Cluster -StorageArrayName TargetStorageName01
+
+KEYWORDS
+		FibreChannel, Pure, Brocade, Zonning
+
+SEE ALSO
+		
+
