@@ -29,6 +29,11 @@ function Invoke-FCConfiguration
       [string]$ZoneHostGroupName,
 
       [Parameter(Mandatory=$false,
+      HelpMessage='Please specify PrepareConfig Action')]
+      [ValidateSet("Create", "Add")]
+      [string]$PrepConfigAction,
+
+      [Parameter(Mandatory=$false,
          HelpMessage='Please specify log location.')]
       $LogFile = "C:\Users\Public\Documents\FibreChannelTools.txt"        
    )
@@ -72,6 +77,27 @@ function Invoke-FCConfiguration
                Write-Error "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter."
                Invoke-FCLogToFile -LogMessageType "[ERROR]" -LogMessage "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter." -LogFile $LogFile
                throw "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter."
+            }
+         }
+      }
+
+      if ($ActionType -eq "PrepareConfig"){
+         if (!$ZoneHostGroupName) {
+            $ZoneHostGroupName = Read-Host "Enter the name of the zone host group (must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter)"
+            if ($ZoneHostGroupName -cnotmatch '^[A-Z][A-Z\d-]{0,14}$') {
+               Write-Error "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter."
+               Invoke-FCLogToFile -LogMessageType "[ERROR]" -LogMessage "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter." -LogFile $LogFile
+               throw "Invalid zone host group name. Must be in CAPITAL, less or equal 15 characters, accept only letters, digits and hyphen. First character should be a letter."
+            }
+         }
+
+         if (!$PrepConfigAction) {
+            $PrepConfigAction = Read-Host "Enter the action type (Create or Add)"
+            if ($PrepConfigAction -notin "Create","Add")
+            {
+               Write-Error "Invalid value for action type. Valid values are 'Create' and 'Add'."
+               Invoke-FCLogToFile -LogMessageType "[ERROR]" -LogMessage "Invalid value for action type. Valid values are 'Create' and 'Add'." -LogFile $LogFile
+               throw "Invalid value for action type. Valid values are 'Create' and 'Add'."
             }
          }
       }
@@ -513,6 +539,7 @@ function Invoke-FCConfiguration
             try {
                $AliasCheckResults = Invoke-FCAliasCheckV2 -Session_Headers_SAN $Session_Headers_SAN -SAN $SAN_Name -AliasName $Computer -WWPNs $VMWWPNs_All -LogFile $LogFile
                if ($AliasCheckResults[0] -eq "5") {
+                  $AliasAlreadyExists = $false
                   Write-Host "Alias Check passed. Alias [$Computer] doesn't exists. We are good to go." -ForegroundColor Green
                   Invoke-FCLogToFile -LogMessageType "[INFO]" -LogMessage "[$SAN_Name] Alias Check passed. Alias [$Computer] doesn't exists. We are good to go." -LogFile $LogFile
                }
@@ -830,8 +857,6 @@ function Invoke-FCConfiguration
             }
          }
          if($ActionType -match "PrepareConfig") {
-            Write-Host "Please enter Cluster\HostGroup name (it will be used for Zone name):"
-            $FC_ClusterName = Read-Host
 
             switch -Exact ($StorageArrayName)
             {
@@ -857,25 +882,23 @@ function Invoke-FCConfiguration
                }
             }
 
-            $FC_Zone_Name = "PRZ_" + $StorageArrayName[0] + "_" + $FC_ClusterName + "_01"
+            $FC_Zone_Name = "PRZ_" + $StorageArrayName[0] + "_" + $ZoneHostGroupName + "_01"
 
-            Write-Host "Create new Zone $FC_Zone_Name (Create) for $Computer or Add $Computer to Existing Zone $FC_Zone_Name (Add)? (Create\Add):"
-            $FC_ZoneOption = Read-Host
             switch -Exact ($FC_ZoneOption)
             {
                'Create' {
                   $SAN1_Config = "
-alicreate """ + $Computer + "_vFC1"",""" + $VMWWPNs[0] + ";" + $VMWWPNs[2] + """ 
+alicreate """ + $Computer + "_vFC1"",""" + $VMWWPNs_All[0] + ";" + $VMWWPNs_All[2] + """
 zonecreate --peerzone """ + $FC_Zone_Name + """ -principal """ + $SAN1_StoragePorts[0] + ";" + $SAN1_StoragePorts[1] + `
 ";" + $SAN1_StoragePorts[2] + ";" + $SAN1_StoragePorts[3] + """ -members """ + $Computer + "_vFC1""
-cfgadd SAN_1_LSD,""" + $FC_Zone_Name + """
-cfgenable SAN_1_LSD"
+cfgadd ITSS_SAN_1_LSD,""" + $FC_Zone_Name + """
+cfgenable ITSS_SAN_1_LSD"
                   $SAN2_Config = "
-alicreate """ + $Computer + "_vFC2"",""" + $VMWWPNs[1] + ";" + $VMWWPNs[3] + """ 
+alicreate """ + $Computer + "_vFC2"",""" + $VMWWPNs_All[1] + ";" + $VMWWPNs_All[3] + """ 
 zonecreate --peerzone """ + $FC_Zone_Name + """ -principal """ + $SAN2_StoragePorts[0] + ";" + $SAN2_StoragePorts[1] + `
 ";" + $SAN2_StoragePorts[2] + ";" + $SAN2_StoragePorts[3] + """ -members """ + $Computer + "_vFC2""
-cfgadd SAN_2_LSD,""" + $FC_Zone_Name + """
-cfgenable SAN_2_LSD
+cfgadd ITSS_SAN_2_LSD,""" + $FC_Zone_Name + """
+cfgenable ITSS_SAN_2_LSD
 "
                   Write-Host ('-'*80) -ForegroundColor Green
                   Write-Host "[SAN-1] Config - Please double check everything and apply commands line by line" -ForegroundColor Magenta
@@ -894,14 +917,14 @@ cfgenable SAN_2_LSD
                'Add' {
                 # The formatting below is done specifically for pretty output to the console
                   $SAN1_Config = "
-alicreate """ + $Computer + "_vFC1"",""" + $VMWWPNs[0] + ";" + $VMWWPNs[2] + """ 
+alicreate """ + $Computer + "_vFC1"",""" + $VMWWPNs_All[0] + ";" + $VMWWPNs_All[2] + """ 
 zoneadd --peerzone """ + $FC_Zone_Name + """ -members """ + $Computer + "_vFC1""
-cfgenable SAN_1_LSD"
-      
+cfgenable ITSS_SAN_1_LSD"
+                        
                   $SAN2_Config = "
-alicreate """ + $Computer + "_vFC2"",""" + $VMWWPNs[1] + ";" + $VMWWPNs[3] + """ 
+alicreate """ + $Computer + "_vFC2"",""" + $VMWWPNs_All[1] + ";" + $VMWWPNs_All[3] + """ 
 zoneadd --peerzone """ + $FC_Zone_Name + """ -members """ + $Computer + "_vFC2""
-cfgenable SAN_2_LSD"
+cfgenable ITSS_SAN_2_LSD"
 
                   Write-Host ('-'*80) -ForegroundColor Green
                   Write-Host "[SAN-1] Config - Please double check everything and apply commands line by line" -ForegroundColor Magenta
